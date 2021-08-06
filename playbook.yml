@@ -1,0 +1,42 @@
+---
+- hosts: all
+  become: yes
+  tasks:
+  - name: Ensure NTP (for time synchronization) is installed.
+    yum: name=ntp state=present
+    
+  - name: Ensure NTP is running.
+    service: name=ntpd state=started enabled=yes
+
+- hosts: app
+  become: yes
+  tasks:
+  - name: Ensure MySQL-python installed
+    yum: name=MySQL-python state=present
+
+  - name: Ensure python-setuptools installed
+    yum: name=python-setuptools state=present
+
+  - name: Ensure python-pip installed
+    yum: name=python3-pip state=present
+
+  - name: Install or update pip
+    community.general.easy_install:
+      name: pip
+      state: latest
+
+  - name: Install django
+    pip:
+      name:
+        - django<2
+
+- hosts: db
+  become: yes
+  tasks:
+    - name: Install MariaDB-Server
+      yum: name=mariadb-server state=present
+    - name: Ensure MariaDB started
+      service: name=mariadb state=started enabled=yes
+    - name: Iptables flush
+      iptables:
+        flush: yes
