@@ -33,7 +33,7 @@
 - hosts: db
   become: yes
   tasks:
-    - name: Install MariaDB-Server
+    - name: - Install MariaDB-Server -
       yum: name=mariadb-server state=present
     - name: Ensure MariaDB started
       service: name=mariadb state=started enabled=yes
