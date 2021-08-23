@@ -30,13 +30,28 @@
       name:
         - django<2
 
+  - name: Ensure group "admin" exists
+    ansible.builtin.group:
+      name: admin
+      state: present
+
+  - name: Add the user 'johndoe' with a specific uid and a primary group of 'admin'
+    ansible.builtin.user:
+      name: johnddoe
+      create_home: yes
+      home: /home/johndoe
+      comment: John Doe
+      group: admin
+
 - hosts: db
   become: yes
   tasks:
-    - name: - Install MariaDB-Server -
+    - name: Install MariaDB-Server
       yum: name=mariadb-server state=present
+
     - name: Ensure MariaDB started
       service: name=mariadb state=started enabled=yes
-    - name: Iptables flush
-      iptables:
-        flush: yes
+
+    - name: Install MySQL-python
+      yum: name=MySQL-python state=present
+
