@@ -6,3 +6,5 @@
     node_apps_location: /usr/local/opt/node
 
   tasks:
+  - name: Install EPEL repo.
+    yum: name=epel-release state=present
