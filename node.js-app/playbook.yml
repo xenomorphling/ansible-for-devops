@@ -7,8 +7,8 @@
 
   tasks:
   - name: Install EPEL repo.
-    yum: 
-      name: epel-release 
+    yum:
+      name: epel-release
       state: present
 
   - name: Import Remi GPG key.
@@ -17,7 +17,7 @@
       state: present
 
   - name: Install Remi repo.
-    yum: 
+    yum:
       name: "https://rpms.remirepo.net/enterprise/remi-release-7.rpm"
       state: present
 
@@ -49,4 +49,4 @@
 
   - name: Start example Node.js app.
     command: "forever start {{ node_apps_location }}/app/app.js"
-    when: "forever_list.stdout.find(node_apps_location + '/app/app.js') == -1"
+    when: "forever_list.stdout.find(node_apps_location + '/app/app.js') == -1
