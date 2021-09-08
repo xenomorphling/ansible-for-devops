@@ -7,18 +7,26 @@
 
   pre_tasks:
     - name: Update apt cache if needed.
-      apt: update_cache=yes cache_valid_time=3600
+      apt: 
+        update_cache: yes 
+        cache_valid_time: 3600
 
   tasks:
-    - name: Get softwawre for apt repository management.
+    - name: Get software for apt repository management.
       apt:
         name:
           - python-apt
           - python-pycurl
+          - software-properties-common
         state: present
 
-    - name: Add ondrej repository for later versions of PHP.
-      apt_repository: repo='ppa:ondrej/php' update_cache=yes
+    # - name: Add ondrej repository for later versions of PHP.
+    #   apt_repository: repo='ppa:ondrej/php' update_cache=yes
+      
+    - name: Add specified repository into sources list
+      ansible.builtin.apt_repository:
+        repo: ppa:ondrej/php
+        state: present
 
     - name: "Install Apache, MySQL, PHP, and other dependencies."
       apt:
@@ -28,6 +36,7 @@
           - unzip
           - sendmail
           - apache2
+          - php7.1
           - php7.1-common
           - php7.1-cli
           - php7.1-dev
@@ -89,16 +98,18 @@
         state: present
       notify: restart apache
 
-    - name: Creaet a MySQL database for Drupal.
-      mysql_db: "db={{ domain }} state=present"
+    - name: Create a MySQL database for Drupal.
+      community.mysql.mysql_db:
+        name: "{{ domain }}"
+        state: present
 
     - name: Create a MYSQL user for Drupal.
-      mysql_user:
+      community.mysql.mysql_user:
         name: "{{ domain }}"
+        host: app
         password: "1234"
         priv: "{{ domain }}.*:ALL"
-        host: localhost
-      state: present
+        state: present
 
     - name: Download Composer installer.
       get_url:
@@ -106,17 +117,60 @@
         dest: /tmp/composer-installer.php
         mode: 0755
 
-      - name: Run Composer installer.
-        command: >
-          php composer-installer.php
-          chdir=/tmp
-          creates=/usr/local/bin/composer
+    - name: Run Composer installer.
+      command: >
+        php composer-installer.php
+        chdir=/tmp
+        creates=/usr/local/bin/composer
+    - name: Move Composer into globally-accessible location.
+      command: >
+        mv /tmp/composer.phar /usr/local/bin/composer
+        creates=/usr/local/bin/composer
+    - name: Check out druch 8.x branch.
+      git:
+        repo: https://github.com/drush-ops/drush.git
+        version: 8.x
+        dest: /opt/drush
+    - name: Install Druch dependencies with Composer.
+      command: >
+        /usr/local/bin/composer install
+        chdir=/opt/drush
+        creates=/opt/drush/vendor/autoload.php
+    - name: Create druch bin symlink
+      file: 
+        src: /opt/drush/drush
+        dest: /usr/local/bin/drush
+        state: link
+    - name: Check out Drupal Core to the Apache docroot.
+      git:
+        repo: https://git.drupal.org/project/drupal.git
+        version: "{{ drupal_core_version }}"
+        dest: "{{ drupal_core_path }}"
+      register: git_checkout
+    - name: Ensure Drupal codebase is owned by www-data.
+      file:
+        path: "{{ drupal_core_path }}"
+        owner: www-data
+        group: www-data
+        recurse: true
+      when: git_checkout.changed | bool
 
-      - name: Move Composer into globally-accessible location.
-        command: >
-          mv /tmp/composer.phar /usr/local/bin/composer
-          creates=/usr/local/bin/composer
-
+    - name: Install Drupal dependencies with Composer.
+      command: >
+        /usr/local/bin/composer install
+        chdir={{ drupal_core_path }}
+        creates={{ drupal_core_path }}/vendor/autoload.php
+      become_user: www-data
+    - name: Install Drupal.
+      command: >
+        drush si -y --site-name="{{ drupal_site_name }}"
+        --account-name=admin
+        --account-pass=admin
+        --db-url=mysql://{{ domain }}:1234@localhost/{{ domain }}
+        --root={{ drupal_core_path }}
+        creates={{ drupal_core_path }}/sites/default/settings.php
+      notify: restart apache
+      become_user: www-data
 
 
   handlers:
